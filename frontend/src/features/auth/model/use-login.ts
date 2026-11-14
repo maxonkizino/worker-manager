@@ -1,33 +1,30 @@
-import { publicRqClient } from "@/shared/api/instance";
-import { components } from "@/shared/api/schema/generated";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { apiRequest } from "@/shared/api";
+import type { LoginRequest, LoginResponse } from "@/shared/api/types";
 import { ROUTES } from "@/shared/model/routes";
 import { useSession } from "@/shared/model/session";
-import { useNavigate } from "react-router-dom";
-
-type LoginRequest = components["schemas"]["LoginRequest"];
 
 export function useLogin() {
   const navigate = useNavigate();
+  const { login } = useSession();
 
-  const session = useSession();
-  const loginMutation = publicRqClient.useMutation("post", "/auth/signIn", {
-    onSuccess(data) {
-      session.login(data.token);
-      navigate(ROUTES.HOME);
+  const mutation = useMutation({
+    mutationFn: (body: LoginRequest) =>
+      apiRequest<LoginResponse>("/auth/login", {
+        method: "POST",
+        body,
+        auth: false,
+      }),
+    onSuccess: (data) => {
+      login(data.accessToken);
+      navigate(ROUTES.DASHBOARD);
     },
   });
 
-  const login = (data: LoginRequest) => {
-    loginMutation.mutate({ body: data });
-  };
-
-  const errorMessage = loginMutation.isError
-    ? loginMutation.error?.message
-    : undefined;
-
   return {
-    login,
-    isPending: loginMutation.isPending,
-    errorMessage,
+    login: mutation.mutate,
+    isPending: mutation.isPending,
+    errorMessage: mutation.error?.message,
   };
 }

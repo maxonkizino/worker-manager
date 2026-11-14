@@ -1,0 +1,14 @@
+package com.taskflow.analytics.kafka;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.kafka.annotation.EnableKafka;
+
+@Configuration
+@EnableKafka
+@Import(KafkaAutoConfiguration.class)
+@ConditionalOnProperty(prefix = "taskflow.kafka", name = "enabled", havingValue = "true")
+public class KafkaConfiguration {
+}

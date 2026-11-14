@@ -1,37 +1,40 @@
-import { publicRqClient } from "@/shared/api/instance";
-import { components } from "@/shared/api/schema/generated";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { apiRequest } from "@/shared/api";
+import type { LoginRequest, LoginResponse, RegisterRequest } from "@/shared/api/types";
 import { ROUTES } from "@/shared/model/routes";
 import { useSession } from "@/shared/model/session";
-import { useNavigate } from "react-router-dom";
-
-type RegisterRequest = components["schemas"]["RegisterRequest"];
 
 export function useRegister() {
   const navigate = useNavigate();
+  const { login } = useSession();
 
-  const session = useSession();
-  const registerMutation = publicRqClient.useMutation(
-    "post",
-    "/auth/signUp",
-    {
-      onSuccess(data) {
-        session.login(data.token);
-        navigate(ROUTES.HOME);
-      },
+  const mutation = useMutation({
+    mutationFn: async (body: RegisterRequest) => {
+      await apiRequest("/auth/register", {
+        method: "POST",
+        body,
+        auth: false,
+      });
+      const loginBody: LoginRequest = {
+        username: body.username,
+        password: body.password,
+      };
+      return apiRequest<LoginResponse>("/auth/login", {
+        method: "POST",
+        body: loginBody,
+        auth: false,
+      });
     },
-  );
-
-  const register = (data: RegisterRequest) => {
-    registerMutation.mutate({ body: data });
-  };
-
-  const errorMessage = registerMutation.isError
-    ? registerMutation.error?.message
-    : undefined;
+    onSuccess: (data) => {
+      login(data.accessToken);
+      navigate(ROUTES.DASHBOARD);
+    },
+  });
 
   return {
-    register,
-    isPending: registerMutation.isPending,
-    errorMessage,
+    register: mutation.mutate,
+    isPending: mutation.isPending,
+    errorMessage: mutation.error?.message,
   };
 }

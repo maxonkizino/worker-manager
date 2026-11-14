@@ -1,0 +1,28 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: localhost:9092
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+eureka:
+  client:
+    enabled: false
+
+taskflow:
+  jwt:
+    secret: test-jwt-secret-key-minimum-32-characters-long
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+  kafka:
+    enabled: false
+  redis:
+    enabled: false

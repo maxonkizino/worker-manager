@@ -1,36 +1,17 @@
 spring:
-  data:
-    mongodb:
-      uri: mongodb://root:password@mongo:27017/taskdb
-      database: taskdb
-      auto-index-creation: true
-      repositories:
-        enabled: true
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/task_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
+
+taskflow:
+  user-service:
+    base-url: http://user-service:8082
   kafka:
-    bootstrap-servers: kafka:9092
+    enabled: true
 
-minio:
-  endpoint: http://minio:9000
-  access-key: minio
-  secret-key: minio123
-  bucket-name: taskflow-attachments
-
-#eureka:
-#  client:
-#    serviceUrl:
-#      defaultZone: http://eureka-server:8761/eureka/
-#    registerWithEureka: true
-#    fetchRegistry: true
-#  instance:
-#    hostname: task-service
-#    preferIpAddress: false
 eureka:
   client:
-    serviceUrl:
-      defaultZone: http://eureka-service:8761/eureka/
-    registerWithEureka: true
-    fetchRegistry: true
-  instance:
-    instance-id: ${spring.application.name}:docker:${spring.application.instance_id:${random.value}}
-    preferIpAddress: false
-    hostname: task-service
+    enabled: ${EUREKA_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://eureka-service:8761/eureka/}

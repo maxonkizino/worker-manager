@@ -1,9 +1,9 @@
 spring:
   # Database - локальное подключение
   datasource:
-    url: jdbc:postgresql://localhost:5432/analytics_db
-    username: user
-    password: password
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/analytics_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
     driver-class-name: org.postgresql.Driver
   
   # JPA - настройки для разработки

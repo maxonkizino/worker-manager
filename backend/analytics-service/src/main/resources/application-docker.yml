@@ -2,8 +2,8 @@ spring:
   # Database - подключение к контейнеру PostgreSQL
   datasource:
     url: jdbc:postgresql://postgres:5432/analytics_db
-    username: user
-    password: password
+    username: taskflow
+    password: taskflow
     driver-class-name: org.postgresql.Driver
   
   # JPA - настройки для продакшена
@@ -14,7 +14,11 @@ spring:
   
   # Kafka - подключение к контейнеру Kafka
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: kafka:29092
+
+taskflow:
+  kafka:
+    enabled: true
 
 # Eureka - подключение к контейнеру Eureka
 eureka:

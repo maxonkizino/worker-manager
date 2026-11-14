@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/optimization_db
+    username: taskflow
+    password: taskflow
+
+taskflow:
+  services:
+    task-service-url: http://task-service:8083
+    user-service-url: http://user-service:8082

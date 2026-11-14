@@ -1,0 +1,44 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: optimization-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/optimization_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+taskflow:
+  services:
+    task-service-url: http://localhost:8083
+    user-service-url: http://localhost:8082
+    http-connect-timeout: 5s
+    http-read-timeout: 10s
+
+logging:
+  level:
+    com.taskflow.optimization: INFO

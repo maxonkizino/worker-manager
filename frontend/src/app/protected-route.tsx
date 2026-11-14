@@ -1,27 +1,19 @@
 import { ROUTES } from "@/shared/model/routes";
-import { Outlet, redirect } from "react-router-dom";
-import { useSession } from "@/shared/model/session";
-import { Navigate } from "react-router-dom";
-import { enableMocking } from "@/shared/api/mocks";
+import { Navigate, Outlet, redirect } from "react-router-dom";
+import { getAccessToken, useSession } from "@/shared/model/session";
 
 export function ProtectedRoute() {
-  const { session } = useSession();
-
-  if (!session) {
-    return <Navigate to={ROUTES.LOGIN} />;
+  const { token } = useSession();
+  if (!token) {
+    return <Navigate to={ROUTES.LOGIN} replace />;
   }
-
   return <Outlet />;
 }
 
 export async function protectedLoader() {
-  await enableMocking();
-
-  const token = await useSession.getState().refreshToken();
-
+  const token = await getAccessToken();
   if (!token) {
     return redirect(ROUTES.LOGIN);
   }
-
   return null;
 }

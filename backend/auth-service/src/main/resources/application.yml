@@ -5,41 +5,42 @@ spring:
   application:
     name: auth-service
   profiles:
-    active: dev
+    active: local
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   jpa:
     open-in-view: false
     hibernate:
-      properties:
-        hibernate.format_sql: true
-        hibernate.highlight_sql: true
-        hibernate.show_sql: false
-        hibernate.jdbc.time_zone: UTC
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-    show-sql: true
-
-  
-
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
   kafka:
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      retries: 3
-      acks: all
-      properties:
-        linger.ms: 5
-    consumer:
-      group-id: auth-service-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-    properties:
-      spring.json.trusted.packages: "*"
-    listener:
-      ack-mode: record
+  data:
+    redis:
+      repositories:
+        enabled: false
 
+eureka:
+  client:
+    enabled: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
 
 springdoc:
   api-docs:
@@ -47,25 +48,48 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, info, metrics, prometheus
-  endpoint:
-    health:
-      show-details: always
-  health:
-    db:
-      enabled: true
-    kafka:
-      enabled: true
+taskflow:
+  auth:
+    lock:
+      max-attempts: 5
+      duration: 15m
+    refresh-cookie:
+      name: refreshToken
+      path: /api/auth
+      secure: false
+      same-site: Lax
+      max-age: 7d
+  jwt:
+    secret: ${JWT_SECRET:taskflow-local-jwt-secret-key-min-32-chars!!}
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+  kafka:
+    enabled: false
+    user-events-topic: user.events
+  redis:
+    enabled: false
 
-jwt:
-  refresh-token-expiration: 604800000  # 7 дней в миллисекундах
-  cookie-name: refreshToken
-  cookie-secure: true  # true для production (HTTPS), false для dev
-  cookie-http-only: true
-  cookie-same-site: strict
-  cleanup-cron: "0 0 2 * * ?"  # Каждый день в 2:00 утра
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/auth_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
+    driver-class-name: org.postgresql.Driver
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    com.taskflow.auth: INFO

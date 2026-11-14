@@ -1,74 +1,72 @@
-
 server:
   port: 8080
 
 spring:
   application:
     name: api-gateway
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  codec:
+    max-in-memory-size: 20MB
+  http:
+    codecs:
+      max-in-memory-size: 20MB
   cloud:
     gateway:
       server:
         webflux:
           discovery:
             locator:
-              enabled: true
-              lower-case-service-id: true
+              enabled: false
           routes:
-
             - id: auth-service
-              uri: lb://auth-service
+              uri: ${GATEWAY_AUTH_URI:http://localhost:8081}
               predicates:
-                - Path=/api/auth/**
-              filters:
-                - StripPrefix=1
+                - Path=/api/auth/**,/api/users/**
 
             - id: user-service
-              uri: lb://user-service
+              uri: ${GATEWAY_USER_URI:http://localhost:8082}
               predicates:
-                - Path=/api/me/profile,/api/users/**
-              filters:
-                - StripPrefix=1
+                - Path=/api/employees/**,/api/departments/**,/api/skills/**,/api/schedules/**,/api/non-working-days/**,/api/absences/**,/api/settings/**
 
-            - id: task-service-tasks
-              uri: lb://task-service
+            - id: task-service
+              uri: ${GATEWAY_TASK_URI:http://localhost:8083}
               predicates:
-                - Path=/api/tasks/**
-              filters:
-                - StripPrefix=1
+                - Path=/api/projects/**,/api/tasks/**,/api/assignments/**,/api/time-entries/**
 
-            - id: task-service-my-tasks
-              uri: lb://task-service
+            - id: analytics-service
+              uri: ${GATEWAY_ANALYTICS_URI:http://localhost:8084}
               predicates:
-                - Path=/api/me/tasks/**
-              filters:
-                - StripPrefix=1
+                - Path=/api/load/**,/api/reports/**,/api/audit/**
 
-            - id: task-service-comments
-              uri: lb://task-service
+            - id: optimization-service
+              uri: ${GATEWAY_OPTIMIZATION_URI:http://localhost:8085}
               predicates:
-                - Path=/api/comments/**
-              filters:
-                - StripPrefix=1
+                - Path=/api/optimization/**
 
-            - id: task-service-attachments
-              uri: lb://task-service
+            - id: notification-service
+              uri: ${GATEWAY_NOTIFICATION_URI:http://localhost:8086}
               predicates:
-                - Path=/api/attachments/**
-              filters:
-                - StripPrefix=1
-
-
+                - Path=/api/notifications/**,/api/calendar/**
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - http://localhost:5173
+                  - http://localhost:3000
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                allowCredentials: true
 
   main:
     web-application-type: reactive
 
 jwt:
+  secret: ${JWT_SECRET:taskflow-local-jwt-secret-key-min-32-chars!!}
+  access-token-expiration: 900000
   issuer: auth-service
 
 eureka:
   client:
+    enabled: false
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
@@ -78,4 +76,3 @@ management:
       exposure:
         include: gateway,routes,health,info
       base-path: /actuator
-

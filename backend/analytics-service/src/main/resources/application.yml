@@ -1,79 +1,53 @@
+server:
+  port: 8084
+
 spring:
   application:
     name: analytics-service
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
-
   profiles:
-    active: dev
-  
-  # JPA/Hibernate - общие настройки
+    active: local
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-  
-  # Kafka - общие настройки
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
   kafka:
     consumer:
-      group-id: analytics-service-group
+      group-id: analytics-service
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-server:
-  port: 8084
-
-# Kafka Topics Configuration
-app:
-  kafka:
-    topics:
-      taskCreated: "task.created"
-      taskUpdated: "task.updated"
-      taskSubscribed: "task.subscribed"
-      taskUnsubscribed: "task.unsubscribed"
-      taskCompleted: "task.completed"
-      taskDeleted: "task.deleted"
-      taskStatusUpdated: "task.status.updated"
-      taskAssigneesUpdated: "task.assignees.updated"
-      attachmentCreated: "attachment.created"
-      attachmentDeleted: "attachment.deleted"
-      commentCreated: "comment.created"
-      commentUpdated: "comment.updated"
-      commentDeleted: "comment.deleted"
-      userCreated: "user.created"
-      userRegistered: "user.registered"
-      userUpdated: "user.updated"
-      userDeleted: "user.deleted"
-      userProfileUpdated: "user.profile.updated"
-      userRoleUpdate: "user.role.updated"
-      userLogin: "auth.login.success"
-      userLoginSuccess: "auth.login.success"
-      userLoginFailed: "auth.login.failed"
-      userLogout: "auth.logout"
-      tokenRefreshed: "auth.token.refreshed"
-      passwordChanged: "auth.password.changed"
-
-# Actuator - общие настройки
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
 
-# Logging - общие настройки
-logging:
-  level:
-    org.example.analyticsservice: INFO
-    org.springframework.kafka: WARN
-    org.springframework.web: WARN
-    org.hibernate: WARN
-  pattern:
-    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+taskflow:
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+    task-events-topic: task.events
+    timeentry-events-topic: timeentry.events
+    absence-events-topic: absence.events
+  user-service:
+    base-url: ${USER_SERVICE_URL:http://localhost:8082}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/analytics_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
+    driver-class-name: org.postgresql.Driver
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}

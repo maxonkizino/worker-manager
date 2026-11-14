@@ -1,12 +1,17 @@
-import { ROUTES } from "../shared/model/routes";
 import { createBrowserRouter, redirect } from "react-router-dom";
+import { ROUTES } from "@/shared/model/routes";
 import { App } from "./app";
 import { Providers } from "./providers";
-import { protectedLoader, ProtectedRoute } from "./protected-route";
-import { AppHeader } from "@/features/header";
+import { ProtectedRoute, protectedLoader } from "./protected-route";
+import { MainLayout } from "./main-layout";
+
+function HydrateFallback() {
+  return <p className="p-6 text-sm text-slate-600">Загрузка...</p>;
+}
 
 export const router = createBrowserRouter([
   {
+    HydrateFallback,
     element: (
       <Providers>
         <App />
@@ -15,75 +20,78 @@ export const router = createBrowserRouter([
     children: [
       {
         loader: protectedLoader,
-        element: (
-          <>
-            <AppHeader />
-            <ProtectedRoute />
-          </>
-        ),
+        element: <ProtectedRoute />,
         children: [
           {
-            path: ROUTES.FAVORITE_BOARDS,
-            lazy: () =>
-              import("@/features/boards-list/boards-list-favorite.page"),
+            element: <MainLayout />,
+            children: [
+          {
+            path: ROUTES.DASHBOARD,
+            lazy: () => import("@/pages/dashboard"),
           },
           {
-            path: ROUTES.RECENT_BOARDS,
-            lazy: () =>
-              import("@/features/boards-list/boards-list-myTasks.page"),
+            path: ROUTES.EMPLOYEES,
+            lazy: () => import("@/pages/employees"),
           },
           {
-            path: ROUTES.ANALYTIC_BOARDS,
-            lazy: () =>
-                import("@/features/analityc/boards-list-analytic.page"),
+            path: ROUTES.EMPLOYEE_DETAILS,
+            lazy: () => import("@/pages/employee-details"),
           },
           {
-            path: ROUTES.USER_BOARDS,
-            lazy: () =>
-                import("@/features/users/boards-list-user.page.tsx"),
+            path: ROUTES.PROJECTS,
+            lazy: () => import("@/pages/projects"),
           },
           {
-            path: ROUTES.BOARD,
-            lazy: () => import("@/features/board/board.page"),
-          },
-          {
-            path: ROUTES.USER_DETAILS,
-            lazy: () => import("@/features/users/user-details.page"),
-          },
-          {
-            path: ROUTES.USER_PROFILE,
-            lazy: () => import("@/features/users/user-profile.page"),
+            path: ROUTES.PROJECT_DETAILS,
+            lazy: () => import("@/pages/project-details"),
           },
           {
             path: ROUTES.TASKS,
-            lazy: () => import("@/features/tasks/tasks-list.page"),
-          },
-          {
-            path: ROUTES.URGENT_TASKS,
-            lazy: () => import("@/features/tasks/task-list-urgent.page"),
-          },
-          {
-            path: ROUTES.FAVORITE_TASKS,
-            lazy: () => import("@/features/tasks/task-list-favorite"),
+            lazy: () => import("@/pages/tasks"),
           },
           {
             path: ROUTES.TASK_DETAILS,
-            lazy: () => import("@/features/tasks/task-details.page"),
+            lazy: () => import("@/pages/task-details"),
+          },
+          {
+            path: ROUTES.ABSENCES,
+            lazy: () => import("@/pages/absences"),
+          },
+          {
+            path: ROUTES.ANALYTICS,
+            lazy: () => import("@/pages/analytics"),
+          },
+          {
+            path: ROUTES.OPTIMIZATION,
+            lazy: () => import("@/pages/optimization"),
+          },
+          {
+            path: ROUTES.NOTIFICATIONS,
+            lazy: () => import("@/pages/notifications"),
+          },
+          {
+            path: ROUTES.SETTINGS,
+            lazy: () => import("@/pages/settings"),
+          },
+          {
+            path: ROUTES.PROFILE,
+            lazy: () => import("@/pages/profile"),
+          },
+            ],
           },
         ],
       },
-
       {
         path: ROUTES.LOGIN,
-        lazy: () => import("@/features/auth/login.page"),
+        lazy: () => import("@/pages/login"),
       },
       {
         path: ROUTES.REGISTER,
-        lazy: () => import("@/features/auth/register.page"),
+        lazy: () => import("@/pages/register"),
       },
       {
         path: ROUTES.HOME,
-        loader: () => redirect(ROUTES.TASKS),
+        loader: () => redirect(ROUTES.DASHBOARD),
       },
     ],
   },

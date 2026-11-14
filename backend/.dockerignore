@@ -1,0 +1,7 @@
+**/.git
+**/.idea
+**/*.iml
+**/node_modules
+**/.DS_Store
+**/src/test
+**/*-plain.jar

@@ -1,69 +1,19 @@
 spring:
-  data:
-    redis:
-      host: redis
-      port: 6379
-      timeout: 5000ms
-    mongodb:
-      uri: mongodb://root:password@mongo:27017/notificationdb
-      database: notificationdb
-      auto-index-creation: true
-      repositories:
-        enabled: true
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://postgres:5432/notification_db
+    username: taskflow
+    password: taskflow
+    driver-class-name: org.postgresql.Driver
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: kafka:29092
+
+taskflow:
+  kafka:
+    enabled: true
 
 eureka:
   client:
-    serviceUrl:
-      defaultZone: http://eureka-server:8761/eureka/
-    registerWithEureka: true
-    fetchRegistry: true
-  instance:
-    hostname: notification-service
-    preferIpAddress: false
-    
-app:
-  user-service:
-    url: http://user-service:8080
-  grpc:
-    user-service:
-      host: user-service
-      port: 9090
-  kafka:
-    topics:
-      # Task events
-      task-created: "task.created"
-      task-updated: "task.updated"
-      task-subscribed: "task.subscribed"
-      task-unsubscribed: "task.unsubscribed"
-      task-completed: "task.completed"
-      task-deleted: "task.deleted"
-      task-status-updated: "task.status.updated"
-      task-assignees-updated: "task.assignees.updated"
-      
-      # Attachment events
-      attachment-added: "attachment.added"
-      attachment-deleted: "attachment.deleted"
-      
-      # Comment events
-      comment-created: "comment.created"
-      comment-updated: "comment.updated"
-      comment-deleted: "comment.deleted"
-
-      # User events
-      user-created: "user.created"
-      user-registered: "user.registered"
-      user-updated: "user.updated"
-      user-deleted: "user.deleted"
-      user-profile-updated: "user.profile.updated"
-      user-registration: "user.registration"
-      user-role-update: "user.role.updated"
-
-      # Auth events
-      user-login: "auth.login.success"
-      user-login-success: "auth.login.success"
-      user-login-failed: "auth.login.failed"
-      user-logout: "auth.logout"
-      token-refreshed: "auth.token.refreshed"
-      password-changed: "auth.password.changed"
+    enabled: false

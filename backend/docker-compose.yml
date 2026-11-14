@@ -1,44 +1,43 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:15
-    container_name: postgres
+    image: postgres:16
+    container_name: taskflow-postgres
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - app-network
+      retries: 10
+    networks: [app-network]
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskflow-redis
+    ports:
+      - "6379:6379"
+    networks: [app-network]
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
+    container_name: taskflow-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - app-network
+    networks: [app-network]
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka
-    depends_on:
-      - zookeeper
+    container_name: taskflow-kafka
+    depends_on: [zookeeper]
     ports:
       - "9092:9092"
-      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -47,215 +46,188 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    networks:
-      - app-network
+    networks: [app-network]
 
   eureka-service:
-    build:
-      context: ./discovery-service
-      dockerfile: Dockerfile
-    container_name: eureka-service
-    hostname: eureka-service
+    build: ./discovery-service
+    container_name: taskflow-eureka
     ports:
       - "8761:8761"
-    depends_on:
-      - kafka
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_SERVER_PORT=8761
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1" ]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 40s
-    networks:
-      - app-network
-
-  config-service:
-    build:
-      context: ./config-service
-      dockerfile: Dockerfile
-    container_name: config-service
-    hostname: config-service
-    ports:
-      - "8888:8888"
-    depends_on:
-      eureka-service:
-        condition: service_healthy
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 40s
-    networks:
-      - app-network
-
-  mongo:
-    image: mongo:6.0
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: taskdb
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - app-network
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-    networks:
-      - app-network
-
-  redis:
-    image: redis:7.2.5-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - app-network
-
-  api-gateway:
-    build:
-      context: ./gateway-service
-      dockerfile: Dockerfile
-    hostname: gateway-service
-    container_name: gateway-service
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
-      - CONFIG_SERVER_URL=http://config-service:8888
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-    depends_on:
-      eureka-service:
-        condition: service_healthy
-      config-service:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - app-network
-
-
+      SPRING_PROFILES_ACTIVE: docker
+    networks: [app-network]
 
   auth-service:
-    build:
-      context: .
-      dockerfile: auth-service/Dockerfile
-    container_name: auth-service
-    hostname: auth-service
+    build: ./auth-service
+    container_name: taskflow-auth
     ports:
       - "8081:8081"
     depends_on:
-      config-service:
-        condition: service_healthy
-      eureka-service:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       kafka:
         condition: service_started
+      redis:
+        condition: service_started
+      eureka-service:
+        condition: service_started
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_URL=http://config-service:8888
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-    networks:
-      - app-network
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
+      TASKFLOW_KAFKA_ENABLED: "true"
+      SPRING_DATA_REDIS_HOST: redis
+      TASKFLOW_REDIS_ENABLED: "true"
+    networks: [app-network]
 
   user-service:
     build:
       context: .
       dockerfile: user-service/Dockerfile
-    container_name: user-service
-    hostname: user-service
+    container_name: taskflow-user
     ports:
       - "8082:8082"
-      - "9090:9090"  # gRPC port
     depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
       eureka-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+      AUTH_SERVICE_URL: http://auth-service:8081
+      SPRING_DATA_REDIS_HOST: redis
+      TASKFLOW_REDIS_ENABLED: "true"
+    networks: [app-network]
+
+  task-service:
+    build: ./task-service
+    container_name: taskflow-task
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
         condition: service_healthy
-      config-service:
-        condition: service_healthy
+      kafka:
+        condition: service_started
+      user-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/task_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      USER_SERVICE_URL: http://user-service:8082
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+    networks: [app-network]
+
+  analytics-service:
+    build: ./analytics-service
+    container_name: taskflow-analytics
+    ports:
+      - "8084:8084"
+    depends_on:
       postgres:
         condition: service_healthy
       kafka:
         condition: service_started
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_URL=http://config-service:8888
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/user_db
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-service:8761/eureka/
-      - SPRING_DATASOURCE_USERNAME=user
-      - SPRING_DATASOURCE_PASSWORD=password
-      - EUREKA_CLIENT_INITIAL-INSTANCE-INFO-REPLICATION-DELAY-SECONDS=30 
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8082/actuator/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - app-network
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analytics_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      USER_SERVICE_URL: http://user-service:8082
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+    networks: [app-network]
 
-  # task-service:
-  #   build:
-  #     context: .
-  #     dockerfile: task-service/Dockerfile
-  #   container_name: task-service
-  #   hostname: task-service
-  #   ports:
-  #     - "8083:8083"
-  #   depends_on:
-  #     eureka-service:
-  #       condition: service_healthy
-  #     config-service:
-  #       condition: service_healthy
-  #     mongo:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_started
-  #   environment:
-  #     - SPRING_PROFILES_ACTIVE=docker
-  #     - CONFIG_SERVER_URL=http://config-service:8888
-  #     - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-  #     - EUREKA_CLIENT_INITIAL-INSTANCE-INFO-REPLICATION-DELAY-SECONDS=30
-  #   healthcheck:
-  #     test: [ "CMD", "curl", "-f", "http://localhost:8083/actuator/health" ]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 60s
-  #   networks:
-  #     - app-network
+  optimization-service:
+    build: ./optimization-service
+    container_name: taskflow-optimization
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      task-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/optimization_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      TASK_SERVICE_URL: http://task-service:8083
+      USER_SERVICE_URL: http://user-service:8082
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+    networks: [app-network]
+
+  notification-service:
+    build: ./notification-service
+    container_name: taskflow-notification
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: taskflow
+      SPRING_DATASOURCE_PASSWORD: taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+    networks: [app-network]
+
+  gateway-service:
+    build: ./gateway-service
+    container_name: taskflow-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - user-service
+      - task-service
+      - analytics-service
+      - optimization-service
+      - notification-service
+      - redis
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+      SPRING_DATA_REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+    networks: [app-network]
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: taskflow-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway-service
+    networks: [app-network]
 
 volumes:
   postgres_data:
-  mongo_data:
-  minio_data:
-  redis_data:
 
 networks:
   app-network:

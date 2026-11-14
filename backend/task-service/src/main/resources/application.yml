@@ -4,51 +4,53 @@ server:
 spring:
   application:
     name: task-service
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
-  config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
-
-  kafka:
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      retries: 3
-      acks: all
-      properties:
-        linger.ms: 5
-    consumer:
-      group-id: task-service-group
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-    listener:
-      ack-mode: record
-
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
     enabled: true
+    locations: classpath:db/migration
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/task_db
+    username: ${DB_USER:taskflow}
+    password: ${DB_PASSWORD:taskflow}
+    driver-class-name: org.postgresql.Driver
 
-jwt:
-  issuer: auth-service
+eureka:
+  client:
+    enabled: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics, prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: always
-  health:
-    db:
-      enabled: true
-    kafka:
-      enabled: true
+      show-details: when_authorized
 
+springdoc:
+  api-docs:
+    path: /openapi
+  swagger-ui:
+    path: /swagger-ui.html
 
+taskflow:
+  user-service:
+    base-url: http://localhost:8082
+  kafka:
+    enabled: false
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    task-events-topic: task.events
+    timeentry-events-topic: timeentry.events
+
+logging:
+  level:
+    com.taskflow.task: INFO
